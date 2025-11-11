@@ -1,0 +1,48 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Linux",
+
+  "include": ["app", "tests", "scripts"],
+
+  "exclude": [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/node_modules",
+    "**/.venv",
+    ".git",
+    "alembic/versions"
+  ],
+
+  "ignore": ["**/migrations"],
+
+  "typeCheckingMode": "basic",
+  "strictListInference": true,
+  "strictDictionaryInference": true,
+  "strictSetInference": true,
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUnusedImport": true,
+  "reportUnusedClass": true,
+  "reportUnusedFunction": true,
+  "reportUnusedVariable": true,
+  "reportDuplicateImport": true,
+  "reportOptionalMemberAccess": false,
+  "reportGeneralTypeIssues": false,
+  "reportAttributeAccessIssue": false,
+  "reportPrivateUsage": false,
+  "reportConstantRedefinition": true,
+  "reportIncompatibleMethodOverride": true,
+  "reportIncompatibleVariableOverride": true,
+  "reportOverlappingOverload": true,
+  "useLibraryCodeForTypes": true,
+
+  "executionEnvironments": [
+    {
+      "root": "app",
+      "pythonVersion": "3.11",
+      "extraPaths": ["."]
+    }
+  ]
+}
