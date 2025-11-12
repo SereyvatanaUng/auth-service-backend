@@ -2,7 +2,7 @@ from typing import Optional
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings
-from jose import jwt, JWSError
+from jose import jwt, JWTError
 
 
 def hash_password(password: str) -> str:
@@ -52,5 +52,5 @@ def decode_token(token: str) -> Optional[dict]:
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         return payload
-    except JWSError:
+    except JWTError:
         return None
