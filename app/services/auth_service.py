@@ -139,8 +139,8 @@ class AuthService:
                 status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated"
             )
 
-        access_token = create_access_token(data={"sub": user.id})
-        refresh_token = create_refresh_token(data={"sub": user.id})
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
         refresh_token_record = RefreshToken(
             user_id=user.id,
@@ -203,7 +203,7 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
             )
 
-        user_id = payload.get("sub")
+        user_id = int(payload["sub"])
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
@@ -242,9 +242,9 @@ class AuthService:
                 status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
             )
 
-        new_access_token = create_access_token(data={"sub": user.id})
+        new_access_token = create_access_token(data={"sub": str(user.id)})
 
-        new_refresh_token = create_refresh_token(data={"sub": user.id})
+        new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
         token_record.revoked = True
 

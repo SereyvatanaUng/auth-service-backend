@@ -2,7 +2,7 @@ from typing import Optional
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
 
 
 def hash_password(password: str) -> str:
@@ -49,8 +49,14 @@ def create_refresh_token(data: dict) -> str:
 def decode_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token.strip(),
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
         )
+
         return payload
+
+    except ExpiredSignatureError:
+        return None
     except JWTError:
         return None

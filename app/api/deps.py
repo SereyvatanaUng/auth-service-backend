@@ -15,6 +15,7 @@ def get_current_user(
 ) -> User:
     token = credentials.credentials
     payload = decode_token(token)
+    print("paylload", payload)
 
     if payload is None:
         raise HTTPException(
@@ -30,7 +31,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id: int = payload["sub"]
+    user_id = int(payload["sub"])
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
