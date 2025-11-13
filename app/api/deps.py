@@ -15,7 +15,6 @@ def get_current_user(
 ) -> User:
     token = credentials.credentials
     payload = decode_token(token)
-    print("paylload", payload)
 
     if payload is None:
         raise HTTPException(

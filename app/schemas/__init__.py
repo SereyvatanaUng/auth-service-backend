@@ -11,8 +11,10 @@ from .auth import (
     RefreshTokenRequest,
     RefreshTokenResponse,
 )
+from .user import UserResponse, UserUpdate, UserListResponse
 
 __all__ = [
+    # Auth schemas
     "SignupRequestSchema",
     "SignupRequestResponse",
     "VerifyOTPSchema",
@@ -24,4 +26,8 @@ __all__ = [
     "LogoutResponse",
     "RefreshTokenRequest",
     "RefreshTokenResponse",
+    # User schemas
+    "UserResponse",
+    "UserUpdate",
+    "UserListResponse",
 ]
