@@ -13,6 +13,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.constants import OTPPurposeEnum
 
 
 class AuthService:
@@ -33,18 +34,21 @@ class AuthService:
 
         otp_code = EmailService.generate_otp()
 
-        db.query(OTP).filter(OTP.identifier == email, OTP.purpose == "signup").delete()
+        db.query(OTP).filter(
+            OTP.identifier == email, OTP.purpose == OTPPurposeEnum.SIGNUP
+        ).delete()
 
         otp_record = OTP(
             identifier=email,
             code=otp_code,
-            purpose="signup",
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            purpose=OTPPurposeEnum.SIGNUP,
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
         )
         db.add(otp_record)
         db.commit()
 
-        await EmailService.send_otp_email(email, otp_code, "signup")
+        await EmailService.send_otp_email(email, otp_code, OTPPurposeEnum.SIGNUP)
 
         return {
             "message": "OTP sent to your email",
@@ -60,7 +64,7 @@ class AuthService:
             db.query(OTP)
             .filter(
                 OTP.identifier == email,
-                OTP.purpose == "signup",
+                OTP.purpose == OTPPurposeEnum.SIGNUP,
                 OTP.is_verified.is_(False),
             )
             .order_by(OTP.created_at.desc())
@@ -246,7 +250,8 @@ class AuthService:
         new_token_record = RefreshToken(
             user_id=user.id,
             token=new_refresh_token,
-            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
         db.add(new_token_record)
         db.commit()
@@ -271,14 +276,15 @@ class AuthService:
         otp_code = EmailService.generate_otp()
 
         db.query(OTP).filter(
-            OTP.identifier == email, OTP.purpose == "password_reset"
+            OTP.identifier == email, OTP.purpose == OTPPurposeEnum.PASSWORD_RESET
         ).delete()
 
         otp_record = OTP(
             identifier=email,
             code=otp_code,
-            purpose="password_reset",
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            purpose=OTPPurposeEnum.PASSWORD_RESET,
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
         )
         db.add(otp_record)
         db.commit()
@@ -305,7 +311,7 @@ class AuthService:
             db.query(OTP)
             .filter(
                 OTP.identifier == email,
-                OTP.purpose == "password_reset",
+                OTP.purpose == OTPPurposeEnum.PASSWORD_RESET,
                 OTP.is_verified.is_(False),
             )
             .order_by(OTP.created_at.desc())
@@ -356,13 +362,13 @@ class AuthService:
 
     @staticmethod
     async def resend_otp(email: str, purpose: str, db: Session) -> dict:
-        if purpose not in ["signup", "password_reset"]:
+        if purpose not in [OTPPurposeEnum.SIGNUP, OTPPurposeEnum.PASSWORD_RESET]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Purpose must be 'signup' or 'password_reset'",
             )
 
-        if purpose == "signup":
+        if purpose == OTPPurposeEnum.SIGNUP:
             existing_user = db.query(User).filter(User.email == email).first()
             if existing_user and existing_user.email_verified:
                 raise HTTPException(
@@ -370,7 +376,7 @@ class AuthService:
                     detail="Email already verified. Please login.",
                 )
 
-        if purpose == "password_reset":
+        if purpose == OTPPurposeEnum.PASSWORD_RESET:
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 return {
@@ -392,8 +398,10 @@ class AuthService:
 
         if existing_otp:
             time_since_last = datetime.now(timezone.utc) - existing_otp.created_at
-            if time_since_last < timedelta(seconds=60):
-                retry_after = 60 - int(time_since_last.total_second())
+            if time_since_last < timedelta(seconds=settings.RESEND_COOLDOWN_SECONDS):
+                retry_after = settings.RESEND_COOLDOWN_SECONDS - int(
+                    time_since_last.total_second()
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=f"Please wait {retry_after} seconds before requesting another OTP",
@@ -404,7 +412,9 @@ class AuthService:
             .filter(
                 OTP.identifier == email,
                 OTP.purpose == purpose,
-                OTP.created_at > datetime.now(timezone.utc) - timedelta(minutes=10),
+                OTP.created_at
+                > datetime.now(timezone.utc)
+                - timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
             )
             .count()
         )
@@ -427,12 +437,17 @@ class AuthService:
             identifier=email,
             code=otp_code,
             purpose=purpose,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
         )
         db.add(otp_record)
         db.commit()
 
-        purpose_text = "signup" if purpose == "signup" else "password reset"
+        purpose_text = (
+            OTPPurposeEnum.SIGNUP
+            if purpose == OTPPurposeEnum.SIGNUP
+            else OTPPurposeEnum.PASSWORD_RESET
+        )
         await EmailService.send_otp_email(email, otp_code, purpose_text)
 
         return {

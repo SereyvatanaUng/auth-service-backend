@@ -1,6 +1,8 @@
 import random
 from datetime import datetime, timezone
 
+from app.core.constants import OTPPurposeEnum
+
 
 class EmailService:
     @staticmethod
@@ -8,7 +10,9 @@ class EmailService:
         return "".join([str(random.randint(0, 9)) for _ in range(length)])
 
     @staticmethod
-    async def send_otp_email(email: str, otp: str, purpose: str = "signup") -> bool:
+    async def send_otp_email(
+        email: str, otp: str, purpose: str = OTPPurposeEnum.SIGNUP
+    ) -> bool:
         print("\n" + "=" * 60)
         print("📧 EMAIL SENT (DEVELOPMENT MODE)")
         print("=" * 60)

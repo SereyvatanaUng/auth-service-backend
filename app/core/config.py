@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
+    OTP_EXPIRE_MINUTES: int
+    RESEND_COOLDOWN_SECONDS: int
 
     # CORS - parse JSON string to list
     BACKEND_CORS_ORIGINS: List[str]
