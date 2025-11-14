@@ -256,3 +256,232 @@ class AuthService:
             "refresh_token": new_refresh_token,
             "token_type": "bearer",
         }
+
+    @staticmethod
+    async def request_password_reset(email: str, db: Session) -> dict:
+        user = db.query(User).filter(User.email == email).first()
+
+        if not user:
+            return {
+                "message": "If your email is registered, you will receive a password reset code",
+                "email": email,
+                "expires_in_minutes": 10,
+            }
+
+        otp_code = EmailService.generate_otp()
+
+        db.query(OTP).filter(
+            OTP.identifier == email, OTP.purpose == "password_reset"
+        ).delete()
+
+        otp_record = OTP(
+            identifier=email,
+            code=otp_code,
+            purpose="password_reset",
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        )
+        db.add(otp_record)
+        db.commit()
+
+        await EmailService.send_otp_email(email, otp_code, "password reset")
+
+        return {
+            "message": "If your email is registered, you will receive a password reset code",
+            "email": email,
+            "expires_in_minutes": 10,
+        }
+
+    @staticmethod
+    async def reset_password_with_otp(
+        email: str, otp: str, new_password: str, db: Session
+    ) -> dict:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        otp_record = (
+            db.query(OTP)
+            .filter(
+                OTP.identifier == email,
+                OTP.purpose == "password_reset",
+                OTP.is_verified.is_(False),
+            )
+            .order_by(OTP.created_at.desc())
+            .first()
+        )
+
+        if not otp_record:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OTP not found or already used",
+            )
+
+        if datetime.now(timezone.utc) > otp_record.expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OTP has expired. Please request a new one.",
+            )
+
+        if otp_record.attempts >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed attempts. Please request a new OTP.",
+            )
+
+        if otp_record.code != otp:
+            otp_record.attempts += 1
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid OTP. {5 - otp_record.attempts} attempts remaining.",
+            )
+
+        user.password_hash = hash_password(new_password)
+
+        otp_record.is_verified = True
+
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id, RefreshToken.revoked.is_(False)
+        ).update({"revoked": True})
+
+        db.commit()
+
+        await EmailService.send_password_reset_confirmation(email, str(user.username))
+
+        return {
+            "message": "Password reset successful. Please login with your new password."
+        }
+
+    @staticmethod
+    async def resend_otp(email: str, purpose: str, db: Session) -> dict:
+        if purpose not in ["signup", "password_reset"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Purpose must be 'signup' or 'password_reset'",
+            )
+
+        if purpose == "signup":
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user and existing_user.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already verified. Please login.",
+                )
+
+        if purpose == "password_reset":
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                return {
+                    "message": "If your email is registered, a new OTP has been sent",
+                    "email": email,
+                    "expires_in_minutes": 10,
+                }
+
+        existing_otp = (
+            db.query(OTP)
+            .filter(
+                OTP.identifier == email,
+                OTP.purpose == purpose,
+                OTP.is_verified.is_(False),
+            )
+            .order_by(OTP.created_at.desc())
+            .first()
+        )
+
+        if existing_otp:
+            time_since_last = datetime.now(timezone.utc) - existing_otp.created_at
+            if time_since_last < timedelta(seconds=60):
+                retry_after = 60 - int(time_since_last.total_second())
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Please wait {retry_after} seconds before requesting another OTP",
+                )
+
+        recent_otps_count = (
+            db.query(OTP)
+            .filter(
+                OTP.identifier == email,
+                OTP.purpose == purpose,
+                OTP.created_at > datetime.now(timezone.utc) - timedelta(minutes=10),
+            )
+            .count()
+        )
+
+        if recent_otps_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many OTP requests. Please try again in 10 minutes.",
+            )
+
+        otp_code = EmailService.generate_otp()
+
+        db.query(OTP).filter(
+            OTP.identifier == email,
+            OTP.purpose == purpose,
+            OTP.is_verified.is_(False),
+        ).delete()
+
+        otp_record = OTP(
+            identifier=email,
+            code=otp_code,
+            purpose=purpose,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        )
+        db.add(otp_record)
+        db.commit()
+
+        purpose_text = "signup" if purpose == "signup" else "password reset"
+        await EmailService.send_otp_email(email, otp_code, purpose_text)
+
+        return {
+            "message": f"A new OTP has been sent to {email}",
+            "email": email,
+            "expires_in_minutes": 10,
+        }
+
+    @staticmethod
+    async def change_password(
+        user_id: str, current_password: str, new_password: str, db: Session
+    ) -> dict:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        if not verify_password(current_password, str(user.password_hash)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+        if len(new_password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be at least 8 characters long",
+            )
+
+        if verify_password(new_password, str(user.password_hash)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from current password",
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.updated_at = datetime.now(timezone.utc)
+
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id, RefreshToken.revoked.is_(False)
+        ).update({"revoked": True})
+
+        db.commit()
+
+        await EmailService.send_password_changed_email(
+            email=str(user.email), username=str(user.username)
+        )
+
+        return {
+            "message": "Password changed successfully. Please login again with your new password."
+        }

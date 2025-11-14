@@ -3,12 +3,20 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.schemas.auth import (
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
     LogoutRequest,
     LogoutResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
+    ResendOTPRequest,
+    ResendOTPResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     SignupCompleteResponse,
     SignupRequestResponse,
     SignupRequestSchema,
@@ -75,4 +83,43 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
         refresh_token=request.refresh_token, db=db
     )
 
+    return result
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    request: ForgotPasswordRequest, db: Session = Depends(get_db)
+):
+    result = await AuthService.request_password_reset(email=request.email, db=db)
+    return result
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    result = await AuthService.reset_password_with_otp(
+        email=request.email, otp=request.otp, new_password=request.new_password, db=db
+    )
+    return result
+
+
+@router.post("/resend_otp", response_model=ResendOTPResponse)
+async def resend_otp(request: ResendOTPRequest, db: Session = Depends(get_db)):
+    result = await AuthService.resend_otp(
+        email=request.email, purpose=request.purpose, db=db
+    )
+    return result
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    result = await AuthService.change_password(
+        user_id=str(current_user.id),
+        current_password=request.current_password,
+        new_password=request.new_password,
+        db=db,
+    )
     return result

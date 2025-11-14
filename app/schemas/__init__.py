@@ -10,6 +10,12 @@ from .auth import (
     LogoutResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+    ResendOTPRequest,
+    ResendOTPResponse,
 )
 from .user import UserResponse, UserUpdate, UserListResponse
 
@@ -26,6 +32,12 @@ __all__ = [
     "LogoutResponse",
     "RefreshTokenRequest",
     "RefreshTokenResponse",
+    "ForgotPasswordRequest",
+    "ForgotPasswordResponse",
+    "ResetPasswordRequest",
+    "ResetPasswordResponse",
+    "ResendOTPRequest",
+    "ResendOTPResponse",
     # User schemas
     "UserResponse",
     "UserUpdate",
