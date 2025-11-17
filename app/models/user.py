@@ -16,12 +16,31 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    app_roles = relationship(
-        "UserAppRole", back_populates="user", cascade="all, delete-orphan"
+    user_apps = relationship(
+        "UserApp", back_populates="user", cascade="all, delete-orphan"
+    )
+    user_permissions = relationship(
+        "AppUserPermission", back_populates="user", cascade="all, delete-orphan"
+    )
+    user_access = relationship(
+        "AppUserAccess", back_populates="user", cascade="all, delete-orphan"
     )
     refresh_tokens = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
+
+
+class UserApp(Base):
+    __tablename__ = "user_app"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    app_code = Column(String(50), nullable=True)
+    status = Column(String(10), default="ACT")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship("User", back_populates="user_apps")
 
 
 class RefreshToken(Base):
