@@ -18,6 +18,12 @@ from .auth import (
     ResendOTPResponse,
 )
 from .user import UserResponse, UserUpdate, UserListResponse
+from .permission import (
+    PermissionCreate,
+    PermissionUpdate,
+    PermissionResponse,
+    PermissionListResponse,
+)
 
 __all__ = [
     # Auth schemas
@@ -42,4 +48,9 @@ __all__ = [
     "UserResponse",
     "UserUpdate",
     "UserListResponse",
+    # Permission schemas
+    "PermissionCreate",
+    "PermissionUpdate",
+    "PermissionResponse",
+    "PermissionListResponse",
 ]
